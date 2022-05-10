@@ -1,10 +1,10 @@
-import Vue, { DirectiveOptions, VNode } from 'vue'
-import { DirectiveBinding } from 'vue/types/options'
+import { createApp } from 'vue'
+import type { ObjectDirective,DirectiveBinding, VNode } from 'vue'
 import { debounce } from 'ts-debounce'
 
 // 用于存储全局性的resize事件
 const globalEventListener = {
-  f: () => {}
+  f: () => { }
 }
 
 interface HTMLElement {
@@ -43,10 +43,10 @@ const calcTableHeight = (element: HTMLElement, offset: IOffset) => {
 }
 
 const doTableResize = (el: HTMLElement, binding: DirectiveBinding, vnode: VNode) => {
-  const { componentInstance } = vnode
+  const { instance } = binding
 
   // todo ts 报 Table里面没有layout属性，但是在原型链上可以看到
-  const $table = componentInstance as any
+  const $table = binding as any
   const { value } = binding
   if (!$table.height) {
     throw new Error(
@@ -62,8 +62,8 @@ const doTableResize = (el: HTMLElement, binding: DirectiveBinding, vnode: VNode)
   })
 }
 
-const directive: DirectiveOptions = {
-  bind(el, binding, vnode) {
+const directive: ObjectDirective = {
+  beforeMount(el: HTMLElement, binding: any, vnode: VNode) {
     const elType = el as unknown as HTMLElement
     const resizeListener = () => doTableResize(elType, binding, vnode)
     globalEventListener.f = debounce(resizeListener, 100)
@@ -71,7 +71,7 @@ const directive: DirectiveOptions = {
     // 立刻执行一次
     doTableResize(elType, binding, vnode)
   },
-  update(el, binding, vnode) {
+  updated(el, binding, vnode) {
     window.removeEventListener('resize', globalEventListener.f)
 
     const elType = el as unknown as HTMLElement
@@ -81,9 +81,11 @@ const directive: DirectiveOptions = {
 
     doTableResize(el as unknown as HTMLElement, binding, vnode)
   },
-  unbind() {
+  unmounted() {
     window.removeEventListener('resize', globalEventListener.f)
   },
 }
 
-Vue.directive('height-adaptive', directive)
+const app = createApp({})
+
+app.directive('height-adaptive', directive)

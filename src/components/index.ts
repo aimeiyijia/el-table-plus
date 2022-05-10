@@ -1,4 +1,4 @@
-import ElTableTs from './modules/el-table-ts'
+import ElTablePlus from './modules/el-table-plus'
 import { App } from 'vue'
 
 type ComponentType = any
@@ -38,7 +38,7 @@ function create ({
   }
 }
 
-const Components = [ElTableTs]
+const Components = [ElTablePlus]
 
 export default create({
   components: Components
