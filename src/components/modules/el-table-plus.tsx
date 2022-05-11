@@ -1,4 +1,4 @@
-import { h, defineComponent, computed, PropType, withDirectives } from 'vue'
+import { h, defineComponent, computed, watchEffect, PropType, withDirectives, DirectiveArguments, reactive } from 'vue'
 import vHeightAdaptive from '../directives/height-adaptive'
 import { generateUUID } from '../utils/uuid'
 import { isBoolean, isString, isObject, isUndefined, isFunction } from '../utils/types'
@@ -57,6 +57,10 @@ const ElTablePlusProps = {
     type: Boolean,
     default: true
   },
+  a: {
+    type: Number,
+    default: 0
+  },
   directives: {
     type: [Object] as PropType<boolean | IDirectives | undefined>,
     default: () => { return { heightAdaptive: { bottomOffset: 40 } } },
@@ -66,7 +70,6 @@ const ElTablePlusProps = {
 
 export default defineComponent({
   name: 'ElTablePlus',
-  directives: { 'height-adaptive': vHeightAdaptive },
   props: ElTablePlusProps,
   setup(props, { attrs, slots }) {
 
@@ -91,27 +94,36 @@ export default defineComponent({
         }
         return defaultBottomOffset
       }
+      console.log(defaultBottomOffset, '高度----')
       return defaultBottomOffset
     }
 
-    // 组件支持多种指令
-    const splitDirectives = () => {
-      // 如果直接配置了directives="false"，那么指令都将失去作用
-      if (isBoolean(props.directives) && !props.directives) return []
-      const { heightAdaptive } = props.directives as IDirectives
-      if (isBoolean(heightAdaptive) && !heightAdaptive) return []
-      return [
-        { name: 'height-adaptive', value: { bottomOffset: getheightAdaptiveValue() } }
-      ]
-    }
+    let directives: DirectiveArguments = reactive([])
+    watchEffect(() => {
+      directives.length = 0
+      const directivesProps = props.directives
+
+      // 关闭全部指令
+      if (isBoolean(directivesProps) && !directivesProps) return []
+
+
+      const { heightAdaptive } = directivesProps as IDirectives
+      // 是否关闭高度自适应指令
+      // 不设置或者为true都开启
+      if (!isBoolean(heightAdaptive) || (isBoolean(heightAdaptive) && heightAdaptive)) {
+        directives.push([vHeightAdaptive, { bottomOffset: getheightAdaptiveValue() }])
+      }
+      return directives
+    })
 
     return {
-      columnsAttrs: columnsAttrs.value, tableAttrs, customScopedSlots
+      columnsAttrs: columnsAttrs.value,
+      tableAttrs, customScopedSlots,
+      directives
     }
   },
   render() {
-    console.log(this.columnsAttrs, '统一配置项')
-    console.log(this.directives, '统一配置项123')
+    console.log(this.directives, 'render中的指令')
 
     // 移除不支持自定义插槽的列类型 type[index/selection]
     const noSlots = ['index', 'selection']
@@ -209,27 +221,23 @@ export default defineComponent({
             />
           )
         }).filter(o => o)
+
+    const ElTablePlus = (
+      <el-table
+        ref="ElTablePlusRef"
+        height="100px"
+        data={this.data}
+
+        {...this.$attrs}
+        {...inScopedSlots}
+      >
+        {renderColumns(this.columns)}
+      </el-table>
+    )
     return (
 
       <div class="el-table-plus">
-        {
-          withDirectives(<el-table
-            ref="ElTablePlusRef"
-            height="100px"
-            data={this.data}
-            // {...{
-            //   vHeightAdaptive: "{bottomOffset: 10}"
-            // }}
-
-            {...this.$attrs}
-            {...inScopedSlots}
-          >
-            {renderColumns(this.columns)}
-          </el-table>, [
-            [vHeightAdaptive, {bottomOffset: 400}]
-          ])
-        }
-
+        {withDirectives(ElTablePlus, this.directives)}
       </div>
     )
   }

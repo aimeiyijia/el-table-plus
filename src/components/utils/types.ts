@@ -17,5 +17,5 @@ export function isArray(val: any): boolean {
 }
 
 export function isUndefined(val: any): boolean {
-  return val === undefined
+  return Object.prototype.toString.call(val) === '[object Undefined]'
 }
