@@ -1,5 +1,5 @@
-import { h, defineComponent, computed, PropType, CSSProperties } from 'vue'
-import '../directives/height-adaptive.ts'
+import { h, defineComponent, computed, PropType, withDirectives } from 'vue'
+import vHeightAdaptive from '../directives/height-adaptive'
 import { generateUUID } from '../utils/uuid'
 import { isBoolean, isString, isObject, isUndefined, isFunction } from '../utils/types'
 import { omit } from '../utils/opera'
@@ -27,8 +27,7 @@ declare class ElTableTsDefPagination {
 
 declare interface IDirectives {
   heightAdaptive?: {
-    bottomOffset: number;
-    topOffset: number;
+    bottomOffset: number
   }
 }
 
@@ -36,55 +35,10 @@ declare interface IDirectives {
 
 type ElTableType = InstanceType<typeof ElTable>;
 type ElTableColumType = InstanceType<typeof ElTableColumn>;
-type ElTableProps = ElTableType['$props'];
 
 declare interface IElTablePlusColumn extends ElTableColumType {
   hidden: boolean | ((columns: IElTablePlusColumn) => boolean)
 }
-
-type UserElTableColumnProps = {
-  slotName?: string;
-  headerSlot?: string;
-  render?: (...arg: any[]) => any;
-  children?: ElTableColumnProps[];
-};
-
-export type ElTableColumnProps = InstanceType<typeof ElTableColumn>['$props'] &
-  UserElTableColumnProps;
-
-export type ConditionalKeys<Base, Condition> = NonNullable<
-  // Wrap in `NonNullable` to strip away the `undefined` type from the produced union.
-  {
-    // Map through all the keys of the given base type.
-    [Key in keyof Base]: Key extends Condition // Pick only keys with types extending the given `Condition` type.
-    ? // Retain this key since the condition passes.
-    Key
-    : // Discard this key since the condition fails.
-    never;
-
-    // Convert the produced object into a union type of the keys which passed the conditional test.
-  }[keyof Base]
->;
-
-type eventKeyVal = {
-  [key in keyof ElTableType]: key extends `on${infer stringA}`
-  ? `on${stringA}`
-  : never;
-};
-type EmitKeyMethod = ConditionalKeys<ElTableType, `on${string}`>;
-type eventKey = NonNullable<eventKeyVal[keyof eventKeyVal]>;
-type CamelEventKey<T extends string> = {
-  [key in T]: key extends `on${infer stringA}-${infer stringB}`
-  ? `on${stringA}${Capitalize<stringB>}`
-  : key;
-};
-type eventJsx = CamelEventKey<
-  CamelEventKey<EmitKeyMethod>[keyof CamelEventKey<EmitKeyMethod>]
->;
-type eventKeyName = eventJsx[keyof eventJsx];
-type eventMethodProps = {
-  [key in eventKeyName]: (...args: any[]) => any;
-};
 
 const ElTablePlusProps = {
   data: {
@@ -102,12 +56,17 @@ const ElTablePlusProps = {
   autoToTop: {
     type: Boolean,
     default: true
-  }
+  },
+  directives: {
+    type: [Object] as PropType<boolean | IDirectives | undefined>,
+    default: () => { return { heightAdaptive: { bottomOffset: 40 } } },
+  },
   // onClick: [Function] as PropType<(e: MouseEvent) => void>,
 } as const
 
 export default defineComponent({
   name: 'ElTablePlus',
+  directives: { 'height-adaptive': vHeightAdaptive },
   props: ElTablePlusProps,
   setup(props, { attrs, slots }) {
 
@@ -121,12 +80,39 @@ export default defineComponent({
     // 移除掉表格、分页的插槽，得到所有ElTablePlus的插槽
     const customScopedSlots = omit(slots, ['pagination', 'empty', 'append'])
 
+    const getheightAdaptiveValue = () => {
+      const defaultBottomOffset = 40
+      const { heightAdaptive } = props.directives as IDirectives
+
+      if (heightAdaptive) {
+        const { bottomOffset } = heightAdaptive
+        if (bottomOffset || bottomOffset === 0) {
+          return bottomOffset
+        }
+        return defaultBottomOffset
+      }
+      return defaultBottomOffset
+    }
+
+    // 组件支持多种指令
+    const splitDirectives = () => {
+      // 如果直接配置了directives="false"，那么指令都将失去作用
+      if (isBoolean(props.directives) && !props.directives) return []
+      const { heightAdaptive } = props.directives as IDirectives
+      if (isBoolean(heightAdaptive) && !heightAdaptive) return []
+      return [
+        { name: 'height-adaptive', value: { bottomOffset: getheightAdaptiveValue() } }
+      ]
+    }
+
     return {
       columnsAttrs: columnsAttrs.value, tableAttrs, customScopedSlots
     }
   },
   render() {
     console.log(this.columnsAttrs, '统一配置项')
+    console.log(this.directives, '统一配置项123')
+
     // 移除不支持自定义插槽的列类型 type[index/selection]
     const noSlots = ['index', 'selection']
 
@@ -166,10 +152,7 @@ export default defineComponent({
           const singleColumnsAttrs = Object.assign({ ...this.columnsAttrs, slots: {}, prop: '' }, c)
 
           let slots = {}
-
-          if (noSlots.includes(singleColumnsAttrs.type)) {
-            slots = {}
-          } else {
+          if (!noSlots.includes(singleColumnsAttrs.type)) {
             slots = {
               default: ({ row, column: elColumn, $index }: { row: any, column: typeof ElTableColumn, $index: number }) => {
                 const column: any = Object.assign({}, singleColumnsAttrs, elColumn)
@@ -227,16 +210,26 @@ export default defineComponent({
           )
         }).filter(o => o)
     return (
-      <div class="el-table-ts">
-        <el-table
-          ref="ElTablePlusRef"
-          height="400px"
-          data={this.data}
-          {...this.$attrs}
-          {...inScopedSlots}
-        >
-          {renderColumns(this.columns)}
-        </el-table>
+
+      <div class="el-table-plus">
+        {
+          withDirectives(<el-table
+            ref="ElTablePlusRef"
+            height="100px"
+            data={this.data}
+            // {...{
+            //   vHeightAdaptive: "{bottomOffset: 10}"
+            // }}
+
+            {...this.$attrs}
+            {...inScopedSlots}
+          >
+            {renderColumns(this.columns)}
+          </el-table>, [
+            [vHeightAdaptive, {bottomOffset: 400}]
+          ])
+        }
+
       </div>
     )
   }

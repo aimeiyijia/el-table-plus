@@ -1,5 +1,5 @@
-import { createApp } from 'vue'
-import type { ObjectDirective,DirectiveBinding, VNode } from 'vue'
+import type { ObjectDirective, DirectiveBinding, VNode } from 'vue'
+import { nextTick } from 'vue'
 import { debounce } from 'ts-debounce'
 
 // 用于存储全局性的resize事件
@@ -42,17 +42,11 @@ const calcTableHeight = (element: HTMLElement, offset: IOffset) => {
   return height
 }
 
-const doTableResize = (el: HTMLElement, binding: DirectiveBinding, vnode: VNode) => {
+const doTableResize = async (el: HTMLElement, binding: DirectiveBinding, vnode: VNode) => {
   const { instance } = binding
-
-  // todo ts 报 Table里面没有layout属性，但是在原型链上可以看到
-  const $table = binding as any
+  // https://github.com/vuejs/core/issues/2562
+  const $table: any = instance!.$refs['ElTablePlusRef']
   const { value } = binding
-  if (!$table.height) {
-    throw new Error(
-      "el-table must set the height. Such as height='10px' or height='0'"
-    )
-  }
 
   if (!$table) return
   const height = calcTableHeight(el, value)
@@ -62,8 +56,8 @@ const doTableResize = (el: HTMLElement, binding: DirectiveBinding, vnode: VNode)
   })
 }
 
-const directive: ObjectDirective = {
-  beforeMount(el: HTMLElement, binding: any, vnode: VNode) {
+const vHeightAdaptive: ObjectDirective = {
+  mounted(el: HTMLElement, binding: any, vnode: VNode) {
     const elType = el as unknown as HTMLElement
     const resizeListener = () => doTableResize(elType, binding, vnode)
     globalEventListener.f = debounce(resizeListener, 100)
@@ -86,6 +80,4 @@ const directive: ObjectDirective = {
   },
 }
 
-const app = createApp({})
-
-app.directive('height-adaptive', directive)
+export default vHeightAdaptive
