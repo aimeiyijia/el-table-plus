@@ -20,17 +20,46 @@ const data: any = [
   },
 ]
 const columns: any = [
+  { label: '姓名', type: 'index', prop: 'index' },
   { label: '姓名', prop: 'name' },
   { label: '性别', prop: 'sex' },
   { label: '年龄', prop: 'age' },
   { label: '地址', prop: 'address' },
   { label: '描述', prop: 'desc.height' },
+  {
+    label: '操作',
+    fixed: 'right',
+    prop: 'handle',
+    width: '240',
+    slots: {
+      customRender: 'handle',
+      customTitle: 'handleTitle',
+    },
+  },
 ]
+
+const colAttrs = {
+  align: 'center'
+}
+
+const handleDetail = (a) => {
+  console.log(a)
+}
 </script>
 
 <template>
-  <img alt="Vue logo" src="./assets/logo.png" />
-  <el-table-plus :data="data" :columns="columns" @click="() => {}"></el-table-plus>
+  <el-table-plus :data="data" :columns="columns" :colAttrs="colAttrs" @page-change="() => { }">
+    <template #handle="{cellValue, row, column}">
+        <el-button
+          type="primary"
+          @click="handleDetail({cellValue, row, column})"
+        >
+          查看详情
+        </el-button>
+        <el-button type="danger">删除</el-button>
+      </template>
+      <template #handleTitle>我是自定义的操作标题</template>
+  </el-table-plus>
 </template>
 
 <style>

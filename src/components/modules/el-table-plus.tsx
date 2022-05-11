@@ -57,10 +57,10 @@ export type ConditionalKeys<Base, Condition> = NonNullable<
   {
     // Map through all the keys of the given base type.
     [Key in keyof Base]: Key extends Condition // Pick only keys with types extending the given `Condition` type.
-      ? // Retain this key since the condition passes.
-        Key
-      : // Discard this key since the condition fails.
-        never;
+    ? // Retain this key since the condition passes.
+    Key
+    : // Discard this key since the condition fails.
+    never;
 
     // Convert the produced object into a union type of the keys which passed the conditional test.
   }[keyof Base]
@@ -68,15 +68,15 @@ export type ConditionalKeys<Base, Condition> = NonNullable<
 
 type eventKeyVal = {
   [key in keyof ElTableType]: key extends `on${infer stringA}`
-    ? `on${stringA}`
-    : never;
+  ? `on${stringA}`
+  : never;
 };
 type EmitKeyMethod = ConditionalKeys<ElTableType, `on${string}`>;
 type eventKey = NonNullable<eventKeyVal[keyof eventKeyVal]>;
 type CamelEventKey<T extends string> = {
   [key in T]: key extends `on${infer stringA}-${infer stringB}`
-    ? `on${stringA}${Capitalize<stringB>}`
-    : key;
+  ? `on${stringA}${Capitalize<stringB>}`
+  : key;
 };
 type eventJsx = CamelEventKey<
   CamelEventKey<EmitKeyMethod>[keyof CamelEventKey<EmitKeyMethod>]
@@ -95,45 +95,47 @@ const ElTablePlusProps = {
     type: [Array] as PropType<IElTablePlusColumn[]>,
     default: () => [],
   },
-  onClick: [Function] as PropType<(e: MouseEvent) => void>,
-  // value: [String, Number] as PropType<string | number>,
-  // max: Number,
-  // dot: Boolean,
-  // type: {
-  //   type: String as PropType<
-  //   'success' | 'error' | 'warning' | 'info' | 'default'
-  //   >,
-  //   default: 'default'
-  // },
-  // show: {
-  //   type: Boolean,
-  //   default: true
-  // },
-  // showZero: Boolean,
-  // processing: Boolean,
-  // color: String
+  colAttrs: {
+    type: [Object] as PropType<IElTablePlusColumn>,
+    default: () => ({}),
+  },
+  autoToTop: {
+    type: Boolean,
+    default: true
+  }
+  // onClick: [Function] as PropType<(e: MouseEvent) => void>,
 } as const
 
 export default defineComponent({
   name: 'ElTablePlus',
   props: ElTablePlusProps,
-  setup(props, { attrs }) {
-    console.log(props, '属性')
-    console.log(attrs, '属性678')
+  setup(props, { attrs, slots }) {
+
+    console.log(props, 'props')
+    console.log(attrs, 'attrs')
+    // 统一化的列配置项
+    const columnsAttrs = computed(() => props.colAttrs)
+    // 移除掉分页相关的属性后剩下的表格属性
+    const tableAttrs = omit(attrs, ['page-change', 'current-change', 'size-change', 'prev-click', 'next-click'])
+
+    // 移除掉表格、分页的插槽，得到所有ElTablePlus的插槽
+    const customScopedSlots = omit(slots, ['pagination', 'empty', 'append'])
+
+    return {
+      columnsAttrs: columnsAttrs.value, tableAttrs, customScopedSlots
+    }
   },
   render() {
-    console.log(this)
+    console.log(this.columnsAttrs, '统一配置项')
     // 移除不支持自定义插槽的列类型 type[index/selection]
     const noSlots = ['index', 'selection']
 
-    // 移除分页事件，防止事件冲突
-    const tableListeners = omit(this.$listeners, ['page-change', 'current-change', 'size-change', 'prev-click', 'next-click'])
     // 从插槽中移除内置的插槽 pagination，empty，append
-    const customScopedSlots = omit(this.$scopedSlots, ['pagination', 'empty', 'append'])
-    const { empty, append } = this.$scopedSlots
+    const customScopedSlots = this.customScopedSlots
+    const { empty, append } = this.$slots
     // 内置插槽
     const inScopedSlots = {
-      scopedSlots: {
+      vSlots: {
         empty,
         append: () => {
           return append && append(this.data)
@@ -141,8 +143,8 @@ export default defineComponent({
       }
     }
 
-    const getCellValue = (column: ITableColumn, row: any) => {
-      return column.prop.split('.').reduce((obj, cur) => {
+    const getCellValue = (column: IElTablePlusColumn, row: any) => {
+      return column?.prop?.split('.').reduce((obj, cur) => {
         if (obj) {
           return obj[cur]
         }
@@ -150,7 +152,7 @@ export default defineComponent({
     }
 
 
-    const renderColumns = (columns: ITableColumn[]) =>
+    const renderColumns = (columns: IElTablePlusColumn[]) =>
       columns
         .map(c => {
           const { hidden } = c
@@ -161,85 +163,77 @@ export default defineComponent({
             willHidden = isBoolean(hidden) ? hidden as boolean : false
           }
           if (willHidden) return
-          const options = Object.assign({ ...this.columnsAttrs, scopedSlots: {}, prop: '' }, c)
-          let sampleScopedSlots = {}
+          const singleColumnsAttrs = Object.assign({ ...this.columnsAttrs, slots: {}, prop: '' }, c)
 
+          let slots = {}
 
-          const scopedSlots = {
-            default: ({ row, column: elColumn, $index, store, _self }: { row: any, column: TableColumn, $index: number, store: any, _self: any }) => {
+          if (noSlots.includes(singleColumnsAttrs.type)) {
+            slots = {}
+          } else {
+            slots = {
+              default: ({ row, column: elColumn, $index }: { row: any, column: typeof ElTableColumn, $index: number }) => {
+                const column: any = Object.assign({}, singleColumnsAttrs, elColumn)
 
-              const column: any = Object.assign({}, options, elColumn)
+                // 获取单元格的原始值
+                const cellValue = getCellValue(column, row)
 
-              // 获取单元格的原始值
-              const cellValue = getCellValue(column, row)
+                if (column.slots && column.slots.customRender && !isString(column.slots.customRender)) {
+                  console.error("slotName must be string")
+                  return
+                }
 
-              if (column.scopedSlots && column.scopedSlots.customRender && !isString(column.scopedSlots.customRender)) {
-                console.error("slotName must be string")
-                return
+                // 自定义单元格 指定slot name的优先级比自定义渲染函数优先级低
+                column.customRender =
+                  column.customRender ||
+                  customScopedSlots[column.slots.customRender]
+                if (column.customRender) {
+                  return column.customRender({
+                    cellValue,
+                    row,
+                    column,
+                    $index,
+                  })
+                }
+                return cellValue
+              },
+              header: ({ column: elColumn, $index }: { column: IElTablePlusColumn, $index: number }) => {
+                const column: any = Object.assign({}, singleColumnsAttrs, elColumn)
+
+                if (column.slots && column.slots.customTitle && !isString(column.slots.customTitle)) {
+                  console.error("slotName must be string")
+                  return
+                }
+
+                column.customTitle =
+                  column.customTitle ||
+                  customScopedSlots[column.slots.customTitle]
+                if (column.customTitle) {
+                  return column.customTitle({
+                    column,
+                    $index,
+                  })
+                }
+                return column.label
               }
-
-              // 自定义单元格 指定slot name的优先级比自定义渲染函数优先级低
-              column.customRender =
-                column.customRender ||
-                customScopedSlots[column.scopedSlots.customRender]
-              if (column.customRender) {
-                return column.customRender({
-                  cellValue,
-                  row,
-                  column,
-                  $index,
-                  h,
-                  store,
-                  _self
-                })
-              }
-              return cellValue
-            },
-            header: ({ column: elColumn, $index, store, _self }: { column: ITableColumn, $index: number, store: any, _self: any }) => {
-              const column: any = Object.assign({}, options, elColumn)
-
-              if (column.scopedSlots && column.scopedSlots.customTitle && !isString(column.scopedSlots.customTitle)) {
-                console.error("slotName must be string")
-                return
-              }
-
-              column.customTitle =
-                column.customTitle ||
-                customScopedSlots[column.scopedSlots.customTitle]
-              if (column.customTitle) {
-                return column.customTitle({
-                  column,
-                  $index,
-                  h,
-                  store,
-                  _self
-                })
-              }
-              return column.label
-            }
-          }
-
-          if (!noSlots.includes(options.type)) {
-            sampleScopedSlots = {
-              scopedSlots
             }
           }
 
           return (
             <el-table-column
               key={generateUUID()}
-              {...{ props: options }}
-              {...sampleScopedSlots}
+              {...singleColumnsAttrs}
+              vSlots={slots}
             />
           )
         }).filter(o => o)
     return (
       <div class="el-table-ts">
         <el-table
-          ref="ElTableTsRef"
-          height="0"
+          ref="ElTablePlusRef"
+          height="400px"
           data={this.data}
-          {...{ props: this.$attrs }}
+          {...this.$attrs}
+          {...inScopedSlots}
         >
           {renderColumns(this.columns)}
         </el-table>
