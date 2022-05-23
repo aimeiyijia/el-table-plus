@@ -1,4 +1,4 @@
-import { h, defineComponent, computed, watchEffect, PropType, withDirectives, DirectiveArguments, reactive } from 'vue'
+import { h, ref, defineComponent, computed, watchEffect, PropType, withDirectives, DirectiveArguments, reactive } from 'vue'
 import vHeightAdaptive from '../directives/height-adaptive'
 import { generateUUID } from '../utils/uuid'
 import { isBoolean, isString, isObject, isUndefined, isFunction } from '../utils/types'
@@ -57,10 +57,6 @@ const ElTablePlusProps = {
     type: Boolean,
     default: true
   },
-  a: {
-    type: Number,
-    default: 0
-  },
   directives: {
     type: [Object] as PropType<boolean | IDirectives | undefined>,
     default: () => { return { heightAdaptive: { bottomOffset: 40 } } },
@@ -71,14 +67,89 @@ const ElTablePlusProps = {
 export default defineComponent({
   name: 'ElTablePlus',
   props: ElTablePlusProps,
+  emits: ['scroll', 'page-change', 'current-change', 'size-change', 'prev-click', 'next-click'],
   setup(props, { attrs, slots }) {
 
     console.log(props, 'props')
     console.log(attrs, 'attrs')
+
+    // get tableInstance() {
+    //   return this.$refs['ElTableTsRef'] as Table | any
+    // }
+    // get tableBodyWrapper() {
+    //   return this.tableInstance.bodyWrapper as HTMLElement
+    // }
+
+    const ElTablePlusRef = ref(null)
+
+    const tableInstance = computed(() => {})
+    const tableBodyWrapper = computed(() => { ElTablePlusRef.value })
+
+
+
     // 统一化的列配置项
     const columnsAttrs = computed(() => props.colAttrs)
     // 移除掉分页相关的属性后剩下的表格属性
     const tableAttrs = omit(attrs, ['page-change', 'current-change', 'size-change', 'prev-click', 'next-click'])
+
+    // 设置表格滚动监听器
+  function setTableScrollListener() {
+    tableBodyWrapper.addEventListener('scroll', tableScroll)
+    $once('hook:beforeDestroy', () => {
+      tableBodyWrapper.removeEventListener('scroll', tableScroll)
+    })
+  }
+
+  function setTableScrollToTop() {
+    if (isUndefined(this.autoToTop) || (isBoolean(this.autoToTop) && this.autoToTop)) {
+      tableBodyWrapper.scrollTop = 0
+    }
+  }
+
+  function pageSizeChange(pageSize: number): void {
+    PagStore.pageSize = pageSize
+    emitSizeChangeEvent()
+  }
+
+  function currentChange(currentPage: number): void {
+    PagStore.setCurrentPage(currentPage)
+    emitPageChangeEvent()
+  }
+
+
+  function tableScroll(e: Event) {
+    e.preventDefault()
+    return e
+  }
+
+
+  function emitPageChangeEvent() {
+    return {
+      pageSize: PagStore.pageSize,
+      currentPage: PagStore.currentPage
+    }
+  }
+
+  function emitSizeChangeEvent() {
+    return {
+      pageSize: PagStore.pageSize,
+      currentPage: PagStore.currentPage
+    }
+  }
+
+  function emitPrevClick() {
+    return {
+      pageSize: PagStore.pageSize,
+      currentPage: PagStore.currentPage - 1
+    }
+  }
+
+  function emitNextClick() {
+    return {
+      pageSize: PagStore.pageSize,
+      currentPage: PagStore.currentPage + 1
+    }
+  }
 
     // 移除掉表格、分页的插槽，得到所有ElTablePlus的插槽
     const customScopedSlots = omit(slots, ['pagination', 'empty', 'append'])
