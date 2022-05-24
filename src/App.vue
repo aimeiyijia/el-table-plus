@@ -19,6 +19,69 @@ const data: any = [
       height: 160,
     },
   },
+  {
+    name: '张如霞',
+    sex: '女',
+    age: 16,
+    address: '江苏省 南京市',
+    desc: {
+      height: 160,
+    },
+  },
+  {
+    name: '张如霞',
+    sex: '女',
+    age: 16,
+    address: '江苏省 南京市',
+    desc: {
+      height: 160,
+    },
+  },
+  {
+    name: '张如霞',
+    sex: '女',
+    age: 16,
+    address: '江苏省 南京市',
+    desc: {
+      height: 160,
+    },
+  },
+  {
+    name: '张如霞',
+    sex: '女',
+    age: 16,
+    address: '江苏省 南京市',
+    desc: {
+      height: 160,
+    },
+  },
+  {
+    name: '张如霞',
+    sex: '女',
+    age: 16,
+    address: '江苏省 南京市',
+    desc: {
+      height: 160,
+    },
+  },
+  {
+    name: '张如霞',
+    sex: '女',
+    age: 16,
+    address: '江苏省 南京市',
+    desc: {
+      height: 160,
+    },
+  },
+  {
+    name: '张如霞',
+    sex: '女',
+    age: 16,
+    address: '江苏省 南京市',
+    desc: {
+      height: 160,
+    },
+  },
 ]
 const columns: any = [
   { label: '姓名', type: 'index', prop: 'index' },
@@ -46,29 +109,24 @@ const colAttrs = {
 const directives = reactive({
   // 高度自适应指令配置项
   heightAdaptive: {
-    bottomOffset: 100,
+    bottomOffset: 600,
   },
 })
 
-const a = ref(1)
-
-setTimeout(() => {
-  console.log('更新')
-  console.log(directives)
-  a.value++
-  directives.heightAdaptive.bottomOffset = 10
-}, 2000)
-
-const handleDetail = (a) => {
+const handleDetail = (a: any) => {
   console.log(a)
+}
+
+const handlePageChange = (a: any) => {
+  console.log(a, '分页')
 }
 </script>
 
 <template>
-  <el-table-plus :a="a" :data="data" :columns="columns" :colAttrs="colAttrs" :directives="directives" @page-change="() => { }">
+  <el-table-plus :pagination="{}" :data="data" :columns="columns" :colAttrs="colAttrs" :directives="directives" :total="100" @page-change="handlePageChange">
     <template #handle="{ cellValue, row, column }">
       <el-button type="primary" @click="handleDetail({ cellValue, row, column })">
-        查看详情{{a}}
+        查看详情
       </el-button>
       <el-button type="danger">删除</el-button>
     </template>

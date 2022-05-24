@@ -1,4 +1,4 @@
-import { h, ref, defineComponent, computed, watchEffect, PropType, withDirectives, DirectiveArguments, reactive } from 'vue'
+import { h, ref, defineComponent, computed, watchEffect, PropType, withDirectives, DirectiveArguments, reactive, onMounted, onBeforeUnmount } from 'vue'
 import vHeightAdaptive from '../directives/height-adaptive'
 import { generateUUID } from '../utils/uuid'
 import { isBoolean, isString, isObject, isUndefined, isFunction } from '../utils/types'
@@ -61,6 +61,14 @@ const ElTablePlusProps = {
     type: [Object] as PropType<boolean | IDirectives | undefined>,
     default: () => { return { heightAdaptive: { bottomOffset: 40 } } },
   },
+  pagination: {
+    type: [Object, Boolean] as PropType<boolean | Object>,
+    default: () => {},
+  },
+  total: {
+    type: Number,
+    default: 0,
+  }
   // onClick: [Function] as PropType<(e: MouseEvent) => void>,
 } as const
 
@@ -68,23 +76,36 @@ export default defineComponent({
   name: 'ElTablePlus',
   props: ElTablePlusProps,
   emits: ['scroll', 'page-change', 'current-change', 'size-change', 'prev-click', 'next-click'],
-  setup(props, { attrs, slots }) {
+  setup(props, { attrs, slots, emit }) {
 
     console.log(props, 'props')
     console.log(attrs, 'attrs')
 
-    // get tableInstance() {
-    //   return this.$refs['ElTableTsRef'] as Table | any
-    // }
-    // get tableBodyWrapper() {
-    //   return this.tableInstance.bodyWrapper as HTMLElement
-    // }
+    // 是否展示分页器
+    let isShowPag = ref(true)
+
+    // 默认分页配置
+    const defPagination: ElTableTsDefPagination = reactive({
+      currentPage: 1,
+      pageSizes: [10, 20, 30, 50],
+      pageSize: 10,
+      layout: 'prev, pager, next, sizes, total',
+      background: true,
+    })
 
     const ElTablePlusRef = ref(null)
 
-    const tableInstance = computed(() => {})
-    const tableBodyWrapper = computed(() => { ElTablePlusRef.value })
-
+    let tableInstance: any
+    onMounted(() => {
+      console.log(ElTablePlusRef.value, '表格容器')
+      tableInstance = ElTablePlusRef.value
+      setPagination()
+    })
+    function setTableScrollToTop() {
+      if (isUndefined(props.autoToTop) || (isBoolean(props.autoToTop) && props.autoToTop)) {
+        tableInstance.setScrollTop(0)
+      }
+    }
 
 
     // 统一化的列配置项
@@ -92,64 +113,46 @@ export default defineComponent({
     // 移除掉分页相关的属性后剩下的表格属性
     const tableAttrs = omit(attrs, ['page-change', 'current-change', 'size-change', 'prev-click', 'next-click'])
 
-    // 设置表格滚动监听器
-  function setTableScrollListener() {
-    tableBodyWrapper.addEventListener('scroll', tableScroll)
-    $once('hook:beforeDestroy', () => {
-      tableBodyWrapper.removeEventListener('scroll', tableScroll)
-    })
-  }
-
-  function setTableScrollToTop() {
-    if (isUndefined(this.autoToTop) || (isBoolean(this.autoToTop) && this.autoToTop)) {
-      tableBodyWrapper.scrollTop = 0
+    // 设置分页配置
+    function setPagination() {
+      const pagination = props.pagination
+      console.log(pagination, '567')
+      if (isBoolean(pagination)) {
+        isShowPag.value = (pagination as boolean)
+      }
+      if (isObject(pagination)) {
+        isShowPag.value = true
+        Object.assign(defPagination, pagination)
+        const { pageSize, currentPage } = defPagination
+        console.log(defPagination, '123456')
+        PagStore.setCurrentPage(currentPage)
+        PagStore.setPageSize(pageSize)
+      }
     }
-  }
 
-  function pageSizeChange(pageSize: number): void {
-    PagStore.pageSize = pageSize
-    emitSizeChangeEvent()
-  }
+    function handlePageSizeChange(pageSize: number): void {
+      PagStore.pageSize = pageSize
 
-  function currentChange(currentPage: number): void {
-    PagStore.setCurrentPage(currentPage)
-    emitPageChangeEvent()
-  }
-
-
-  function tableScroll(e: Event) {
-    e.preventDefault()
-    return e
-  }
-
-
-  function emitPageChangeEvent() {
-    return {
-      pageSize: PagStore.pageSize,
-      currentPage: PagStore.currentPage
+      emit('size-change', PagStore)
     }
-  }
 
-  function emitSizeChangeEvent() {
-    return {
-      pageSize: PagStore.pageSize,
-      currentPage: PagStore.currentPage
-    }
-  }
+    function handleCurrentChange(currentPage: number): void {
+      PagStore.setCurrentPage(currentPage)
 
-  function emitPrevClick() {
-    return {
-      pageSize: PagStore.pageSize,
-      currentPage: PagStore.currentPage - 1
+      emit('page-change', PagStore)
     }
-  }
 
-  function emitNextClick() {
-    return {
-      pageSize: PagStore.pageSize,
-      currentPage: PagStore.currentPage + 1
+    function handlePrevClick() {
+      PagStore.setCurrentPage(PagStore.currentPage - 1)
+
+      emit('prev-click', PagStore)
     }
-  }
+
+    function handleNextClick() {
+      PagStore.setCurrentPage(PagStore.currentPage - 1)
+
+      emit('prev-click', PagStore)
+    }
 
     // 移除掉表格、分页的插槽，得到所有ElTablePlus的插槽
     const customScopedSlots = omit(slots, ['pagination', 'empty', 'append'])
@@ -190,7 +193,14 @@ export default defineComponent({
     return {
       columnsAttrs: columnsAttrs.value,
       tableAttrs, customScopedSlots,
-      directives
+      directives,
+      ElTablePlusRef,
+      defPagination,
+      isShowPag,
+      handlePageSizeChange,
+      handleCurrentChange,
+      handlePrevClick,
+      handleNextClick,
     }
   },
   render() {
@@ -293,6 +303,14 @@ export default defineComponent({
           )
         }).filter(o => o)
 
+    const renderPageSlot = () => {
+      if (!this.$slots.hasOwnProperty('pagination')) return
+      return this.$slots.pagination!({
+        total: this.total,
+        config: omit(this.defPagination, ['pageSize', 'currentPage'])
+      })
+    }
+
     const ElTablePlus = (
       <el-table
         ref="ElTablePlusRef"
@@ -309,6 +327,20 @@ export default defineComponent({
 
       <div class="el-table-plus">
         {withDirectives(ElTablePlus, this.directives)}
+
+        {this.isShowPag && (
+          <el-pagination
+            {...this.defPagination }
+            total={this.total}
+            onCurrentChange={this.handleCurrentChange}
+            onSizeChange={this.handlePageSizeChange}
+            onPrevClick={this.handlePrevClick}
+            onNextClick={this.handleNextClick}
+          >
+            {renderPageSlot() && <span class="el-pagination__slot">{renderPageSlot()}</span>}
+          </el-pagination>
+        )}
+
       </div>
     )
   }
