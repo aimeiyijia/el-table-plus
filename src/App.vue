@@ -84,6 +84,7 @@ const data: any = [
   },
 ];
 const columns: any = [
+  { label: "姓名", type: "selection", prop: "selection" },
   { label: "姓名", type: "index", prop: "index" },
   { label: "姓名", prop: "name" },
   { label: "性别", prop: "sex" },
@@ -107,14 +108,17 @@ const colAttrs = {
 };
 
 const pagination = {
-  pageSize: 10,
+  pageSizes: [10, 20, 30, 50],
+  layout: "prev, pager, next, sizes, total, slot",
+  background: true,
+  defaultPageSize: 10,
   defaultCurrentPage: 4,
 };
 
 const directives = reactive({
   // 高度自适应指令配置项
   heightAdaptive: {
-    bottomOffset: 600,
+    bottomOffset: 60,
   },
 });
 
@@ -156,6 +160,7 @@ const handleNextClick = (a: any) => {
       <el-button type="danger">删除</el-button>
     </template>
     <template #handleTitle>我是自定义的操作标题</template>
+    <template #pagination>分页插槽</template>
   </el-table-plus>
 </template>
 

@@ -1,4 +1,19 @@
-import { h, ref, defineComponent, computed, watchEffect, PropType, withDirectives, DirectiveArguments, reactive, onBeforeMount, onMounted, onBeforeUnmount, watch } from 'vue'
+import {
+  h,
+  ref,
+  defineComponent,
+  computed,
+  watchEffect,
+  toRaw,
+  PropType,
+  withDirectives,
+  DirectiveArguments,
+  reactive,
+  onBeforeMount,
+  onMounted,
+  onBeforeUnmount,
+  watch
+} from 'vue'
 import vHeightAdaptive from '../directives/height-adaptive'
 import { generateUUID } from '../utils/uuid'
 import { isBoolean, isString, isObject, isUndefined, isFunction } from '../utils/types'
@@ -87,21 +102,11 @@ export default defineComponent({
     // 是否展示分页器
     let isShowPag = ref(true)
 
-    // 默认分页配置
-    const defPagination: ElTableTsDefPagination = {
-      pageSizes: [10, 20, 30, 50],
-      layout: 'prev, pager, next, sizes, total',
-      background: true,
-      defaultPageSize: 10,
-      defaultCurrentPage: 1
-    }
-
     const ElTablePlusRef = ref(null)
     let tableInstance: any
     onMounted(() => {
       console.log(ElTablePlusRef.value, '表格容器')
       tableInstance = ElTablePlusRef.value
-      setPagination()
     })
 
     function setTableScrollToTop() {
@@ -115,45 +120,50 @@ export default defineComponent({
     // 移除掉分页相关的属性后剩下的表格属性
     const tableAttrs = omit(attrs, ['page-change', 'current-change', 'size-change', 'prev-click', 'next-click'])
 
-    watch(() => PagStore.currentPage, (val, oldVal) => {
-      console.log(val, '变化')
-      console.log(oldVal, '旧变化')
-      // 如果新值大于旧值则点击的是下一步，否则则为上一步
-      val > oldVal ? handleNextClick() : handlePrevClick()
-    })
-    watch(() => PagStore.pageSize, val => {
-      console.log(val, '页数变化')
-    })
-
-    // 设置分页配置
-    function setPagination() {
+    // 默认分页配置
+    const defPagination: ElTableTsDefPagination = {
+      pageSizes: [10, 20, 30, 50],
+      layout: 'prev, pager, next, sizes, total',
+      background: true,
+      defaultPageSize: 10,
+      defaultCurrentPage: 1
+    }
+    watchEffect(() => {
       const pagination = props.pagination
       if (isBoolean(pagination)) {
         isShowPag.value = (pagination as boolean)
       }
       if (isObject(pagination)) {
         isShowPag.value = true
-        // Object.assign(defPagination, pagination)
+        Object.assign(defPagination, pagination)
         const { defaultCurrentPage, defaultPageSize } = pagination as ElPaginationType
         defaultCurrentPage && setCurrentPage(defaultCurrentPage)
         defaultPageSize && setPageSize(defaultPageSize)
       }
-    }
+    })
+
+    watch(() => PagStore.currentPage, (val, oldVal) => {
+      // 如果新值大于旧值则点击的是下一步，否则则为上一步
+      val > oldVal ? handleNextClick() : handlePrevClick()
+    })
+    watch(() => PagStore.pageSize, () => {
+      handlePageSizeChange()
+    })
 
     function handlePageSizeChange() {
-      emit('size-change', {...PagStore})
+      emit('size-change', { ...PagStore })
     }
 
     function handleCurrentChange() {
-      emit('page-change', {...PagStore})
+      emit('page-change', { ...PagStore })
     }
 
     function handlePrevClick() {
-      emit('prev-click', {...PagStore})
+      emit('prev-click', { ...PagStore })
     }
 
     function handleNextClick() {
-      emit('next-click', {...PagStore})
+      emit('next-click', { ...PagStore })
     }
 
     // 移除掉表格、分页的插槽，得到所有ElTablePlus的插槽
@@ -265,7 +275,7 @@ export default defineComponent({
                 if (column.customRender) {
                   return column.customRender({
                     cellValue,
-                    row,
+                    row: toRaw(row),
                     column,
                     $index,
                   })
@@ -314,9 +324,8 @@ export default defineComponent({
     const ElTablePlus = (
       <el-table
         ref="ElTablePlusRef"
-        height="100px"
+        height="0"
         data={this.data}
-
         {...this.$attrs}
         {...inScopedSlots}
       >
@@ -333,6 +342,7 @@ export default defineComponent({
             v-models={[[this.PagStore.currentPage, 'current-page'], [this.PagStore.pageSize, 'page-size']]}
             total={this.total}
           >
+            {renderPageSlot() && <span class="el-pagination__slot">{renderPageSlot()}</span>}
           </el-pagination>
         )}
       </div>
