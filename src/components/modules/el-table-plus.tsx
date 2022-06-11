@@ -1,4 +1,4 @@
-import { h, ref, defineComponent, computed, watchEffect, PropType, withDirectives, DirectiveArguments, reactive, onMounted, onBeforeUnmount } from 'vue'
+import { h, ref, defineComponent, computed, watchEffect, PropType, withDirectives, DirectiveArguments, reactive, onBeforeMount, onMounted, onBeforeUnmount, watch } from 'vue'
 import vHeightAdaptive from '../directives/height-adaptive'
 import { generateUUID } from '../utils/uuid'
 import { isBoolean, isString, isObject, isUndefined, isFunction } from '../utils/types'
@@ -8,7 +8,7 @@ import type { ElTable, ElPagination, ElTableColumn } from 'element-plus'
 // 样式
 import '../styles/index.scss'
 
-import PagStore from '../utils/store'
+import usePag from '../utils/store'
 
 // Exclude<T, U> - 用于从类型T中去除不在U类型中的成员
 // Extract<T, U> - 用于从类型T中取出可分配给U类型的成员
@@ -18,11 +18,11 @@ import PagStore from '../utils/store'
 
 // 默认分页配置
 declare class ElTableTsDefPagination {
-  currentPage: number
   pageSizes: number[]
-  pageSize: number
   layout: string
   background: boolean
+  defaultPageSize: number
+  defaultCurrentPage: number
 }
 
 declare interface IDirectives {
@@ -35,6 +35,7 @@ declare interface IDirectives {
 
 type ElTableType = InstanceType<typeof ElTable>;
 type ElTableColumType = InstanceType<typeof ElTableColumn>;
+type ElPaginationType = InstanceType<typeof ElPagination>;
 
 declare interface IElTablePlusColumn extends ElTableColumType {
   hidden: boolean | ((columns: IElTablePlusColumn) => boolean)
@@ -62,8 +63,8 @@ const ElTablePlusProps = {
     default: () => { return { heightAdaptive: { bottomOffset: 40 } } },
   },
   pagination: {
-    type: [Object, Boolean] as PropType<boolean | Object>,
-    default: () => {},
+    type: [Object, Boolean] as PropType<boolean | ElPaginationType>,
+    default: () => { },
   },
   total: {
     type: Number,
@@ -81,77 +82,78 @@ export default defineComponent({
     console.log(props, 'props')
     console.log(attrs, 'attrs')
 
+    const { PagStore, setCurrentPage, setPageSize } = usePag()
+    console.log(PagStore, '23456')
     // 是否展示分页器
     let isShowPag = ref(true)
 
     // 默认分页配置
-    const defPagination: ElTableTsDefPagination = reactive({
-      currentPage: 1,
+    const defPagination: ElTableTsDefPagination = {
       pageSizes: [10, 20, 30, 50],
-      pageSize: 10,
       layout: 'prev, pager, next, sizes, total',
       background: true,
-    })
+      defaultPageSize: 10,
+      defaultCurrentPage: 1
+    }
 
     const ElTablePlusRef = ref(null)
-
     let tableInstance: any
     onMounted(() => {
       console.log(ElTablePlusRef.value, '表格容器')
       tableInstance = ElTablePlusRef.value
       setPagination()
     })
+
     function setTableScrollToTop() {
       if (isUndefined(props.autoToTop) || (isBoolean(props.autoToTop) && props.autoToTop)) {
         tableInstance.setScrollTop(0)
       }
     }
 
-
     // 统一化的列配置项
-    const columnsAttrs = computed(() => props.colAttrs)
+    const columnsAttrs = computed<IElTablePlusColumn>(() => props.colAttrs)
     // 移除掉分页相关的属性后剩下的表格属性
     const tableAttrs = omit(attrs, ['page-change', 'current-change', 'size-change', 'prev-click', 'next-click'])
+
+    watch(() => PagStore.currentPage, (val, oldVal) => {
+      console.log(val, '变化')
+      console.log(oldVal, '旧变化')
+      // 如果新值大于旧值则点击的是下一步，否则则为上一步
+      val > oldVal ? handleNextClick() : handlePrevClick()
+    })
+    watch(() => PagStore.pageSize, val => {
+      console.log(val, '页数变化')
+    })
 
     // 设置分页配置
     function setPagination() {
       const pagination = props.pagination
-      console.log(pagination, '567')
       if (isBoolean(pagination)) {
         isShowPag.value = (pagination as boolean)
       }
       if (isObject(pagination)) {
         isShowPag.value = true
-        Object.assign(defPagination, pagination)
-        const { pageSize, currentPage } = defPagination
-        console.log(defPagination, '123456')
-        PagStore.setCurrentPage(currentPage)
-        PagStore.setPageSize(pageSize)
+        // Object.assign(defPagination, pagination)
+        const { defaultCurrentPage, defaultPageSize } = pagination as ElPaginationType
+        defaultCurrentPage && setCurrentPage(defaultCurrentPage)
+        defaultPageSize && setPageSize(defaultPageSize)
       }
     }
 
-    function handlePageSizeChange(pageSize: number): void {
-      PagStore.pageSize = pageSize
-
-      emit('size-change', PagStore)
+    function handlePageSizeChange() {
+      emit('size-change', {...PagStore})
     }
 
-    function handleCurrentChange(currentPage: number): void {
-      PagStore.setCurrentPage(currentPage)
-
-      emit('page-change', PagStore)
+    function handleCurrentChange() {
+      emit('page-change', {...PagStore})
     }
 
     function handlePrevClick() {
-      PagStore.setCurrentPage(PagStore.currentPage - 1)
-
-      emit('prev-click', PagStore)
+      emit('prev-click', {...PagStore})
     }
 
     function handleNextClick() {
-      PagStore.setCurrentPage(PagStore.currentPage - 1)
-
-      emit('prev-click', PagStore)
+      emit('next-click', {...PagStore})
     }
 
     // 移除掉表格、分页的插槽，得到所有ElTablePlus的插槽
@@ -191,20 +193,18 @@ export default defineComponent({
     })
 
     return {
-      columnsAttrs: columnsAttrs.value,
+      columnsAttrs,
       tableAttrs, customScopedSlots,
       directives,
       ElTablePlusRef,
       defPagination,
+      PagStore,
       isShowPag,
       handlePageSizeChange,
       handleCurrentChange,
-      handlePrevClick,
-      handleNextClick,
     }
   },
   render() {
-    console.log(this.directives, 'render中的指令')
 
     // 移除不支持自定义插槽的列类型 type[index/selection]
     const noSlots = ['index', 'selection']
@@ -323,24 +323,18 @@ export default defineComponent({
         {renderColumns(this.columns)}
       </el-table>
     )
-    return (
 
+    return (
       <div class="el-table-plus">
         {withDirectives(ElTablePlus, this.directives)}
-
         {this.isShowPag && (
           <el-pagination
-            {...this.defPagination }
+            {...this.defPagination}
+            v-models={[[this.PagStore.currentPage, 'current-page'], [this.PagStore.pageSize, 'page-size']]}
             total={this.total}
-            onCurrentChange={this.handleCurrentChange}
-            onSizeChange={this.handlePageSizeChange}
-            onPrevClick={this.handlePrevClick}
-            onNextClick={this.handleNextClick}
           >
-            {renderPageSlot() && <span class="el-pagination__slot">{renderPageSlot()}</span>}
           </el-pagination>
         )}
-
       </div>
     )
   }

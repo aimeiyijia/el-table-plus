@@ -1,129 +1,154 @@
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive } from "vue";
 const data: any = [
   {
-    name: '刘小凡',
-    sex: '男',
+    name: "刘小凡",
+    sex: "男",
     age: 18,
-    address: '江苏省 南京市',
+    address: "江苏省 南京市",
     desc: {
       height: 180,
     },
   },
   {
-    name: '张如霞',
-    sex: '女',
+    name: "张如霞",
+    sex: "女",
     age: 16,
-    address: '江苏省 南京市',
+    address: "江苏省 南京市",
     desc: {
       height: 160,
     },
   },
   {
-    name: '张如霞',
-    sex: '女',
+    name: "张如霞",
+    sex: "女",
     age: 16,
-    address: '江苏省 南京市',
+    address: "江苏省 南京市",
     desc: {
       height: 160,
     },
   },
   {
-    name: '张如霞',
-    sex: '女',
+    name: "张如霞",
+    sex: "女",
     age: 16,
-    address: '江苏省 南京市',
+    address: "江苏省 南京市",
     desc: {
       height: 160,
     },
   },
   {
-    name: '张如霞',
-    sex: '女',
+    name: "张如霞",
+    sex: "女",
     age: 16,
-    address: '江苏省 南京市',
+    address: "江苏省 南京市",
     desc: {
       height: 160,
     },
   },
   {
-    name: '张如霞',
-    sex: '女',
+    name: "张如霞",
+    sex: "女",
     age: 16,
-    address: '江苏省 南京市',
+    address: "江苏省 南京市",
     desc: {
       height: 160,
     },
   },
   {
-    name: '张如霞',
-    sex: '女',
+    name: "张如霞",
+    sex: "女",
     age: 16,
-    address: '江苏省 南京市',
+    address: "江苏省 南京市",
     desc: {
       height: 160,
     },
   },
   {
-    name: '张如霞',
-    sex: '女',
+    name: "张如霞",
+    sex: "女",
     age: 16,
-    address: '江苏省 南京市',
+    address: "江苏省 南京市",
     desc: {
       height: 160,
     },
   },
   {
-    name: '张如霞',
-    sex: '女',
+    name: "张如霞",
+    sex: "女",
     age: 16,
-    address: '江苏省 南京市',
+    address: "江苏省 南京市",
     desc: {
       height: 160,
     },
   },
-]
+];
 const columns: any = [
-  { label: '姓名', type: 'index', prop: 'index' },
-  { label: '姓名', prop: 'name' },
-  { label: '性别', prop: 'sex' },
-  { label: '年龄', prop: 'age' },
-  { label: '地址', prop: 'address' },
-  { label: '描述', prop: 'desc.height' },
+  { label: "姓名", type: "index", prop: "index" },
+  { label: "姓名", prop: "name" },
+  { label: "性别", prop: "sex" },
+  { label: "年龄", prop: "age" },
+  { label: "地址", prop: "address" },
+  { label: "描述", prop: "desc.height" },
   {
-    label: '操作',
-    fixed: 'right',
-    prop: 'handle',
-    width: '240',
+    label: "操作",
+    fixed: "right",
+    prop: "handle",
+    width: "240",
     slots: {
-      customRender: 'handle',
-      customTitle: 'handleTitle',
+      customRender: "handle",
+      customTitle: "handleTitle",
     },
   },
-]
+];
 
 const colAttrs = {
-  align: 'center'
-}
+  align: "center",
+};
+
+const pagination = {
+  pageSize: 10,
+  defaultCurrentPage: 4,
+};
 
 const directives = reactive({
   // 高度自适应指令配置项
   heightAdaptive: {
     bottomOffset: 600,
   },
-})
+});
 
 const handleDetail = (a: any) => {
-  console.log(a)
-}
+  console.log(a);
+};
 
 const handlePageChange = (a: any) => {
-  console.log(a, '分页')
-}
+  console.log(a, "页面变化");
+};
+const handleSizeChange = (a: any) => {
+  console.log(a, "个数变化");
+};
+const handlePrevClick = (a: any) => {
+  console.log(a, "上一步");
+};
+const handleNextClick = (a: any) => {
+  console.log(a, "下一步");
+};
 </script>
 
 <template>
-  <el-table-plus :pagination="{}" :data="data" :columns="columns" :colAttrs="colAttrs" :directives="directives" :total="100" @page-change="handlePageChange">
+  <el-table-plus
+    :pagination="pagination"
+    :data="data"
+    :columns="columns"
+    :colAttrs="colAttrs"
+    :directives="directives"
+    :total="100"
+    @page-change="handlePageChange"
+    @size-change="handleSizeChange"
+    @prev-click="handlePrevClick"
+    @next-click="handleNextClick"
+  >
     <template #handle="{ cellValue, row, column }">
       <el-button type="primary" @click="handleDetail({ cellValue, row, column })">
         查看详情
